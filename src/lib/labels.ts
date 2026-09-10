@@ -15,3 +15,13 @@ export const STOP_TYPE_EMOJI: Record<string, string> = {
   FALTA_MATERIAL: "📦",
   OTRO: "❓",
 };
+
+export const MATERIAL_TYPES = [
+  "Material inorgánico",
+  "Material orgánico",
+  "Desmonte mina",
+  "Piedra chancada",
+  "Roca",
+  "Arena gruesa",
+  "Afirmado",
+];

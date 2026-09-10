@@ -39,6 +39,10 @@ export async function addTripForEquipment(input: {
   descargaFin: string;
   retornoFin?: string | null;
   observacion?: string;
+  tipoMaterial?: string | null;
+  origen?: string | null;
+  destino?: string | null;
+  equipoCarguioId?: string | null;
 }) {
   const recordId = await getOrCreateWhiteRecord(input.equipmentId, input.date);
   return addTrip({ ...input, recordId });
@@ -52,6 +56,10 @@ export async function addTrip(input: {
   descargaFin: string;
   retornoFin?: string | null;
   observacion?: string;
+  tipoMaterial?: string | null;
+  origen?: string | null;
+  destino?: string | null;
+  equipoCarguioId?: string | null;
 }) {
   const session = await requireSession();
   await assertCanWrite(session.user);
@@ -86,6 +94,10 @@ export async function addTrip(input: {
       descargaFin: input.descargaFin,
       retornoFin: input.retornoFin || null,
       observacion: input.observacion || null,
+      tipoMaterial: input.tipoMaterial || null,
+      origen: input.origen || null,
+      destino: input.destino || null,
+      equipoCarguioId: input.equipoCarguioId || null,
     },
   });
 

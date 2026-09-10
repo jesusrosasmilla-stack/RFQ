@@ -62,6 +62,7 @@ model Equipment {
   whiteRecords  WhiteLineRecord[]
   dailyPlans    DailyPlan[]
   dailyRosters  DailyRoster[]
+  viajesCargados Trip[] @relation("TripEquipoCarguio")
 }
 
 /// Selección diaria: qué equipos trabajan hoy, o si están inoperativos, con fotos de evidencia.
@@ -148,6 +149,11 @@ model Trip {
   descargaFin    String
   retornoFin     String?
   observacion    String?
+  tipoMaterial   String?
+  origen         String?
+  destino        String?
+  equipoCarguioId String?
+  equipoCarguio   Equipment? @relation("TripEquipoCarguio", fields: [equipoCarguioId], references: [id])
 }
 
 model DailyPlan {

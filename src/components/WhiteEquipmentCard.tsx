@@ -5,6 +5,7 @@ import { addTripForEquipment, deleteTrip } from "@/lib/actions/white";
 import { setRosterEstado, uploadRosterFoto } from "@/lib/actions/roster";
 import { calcularCicloViaje, promedioRobusto } from "@/lib/metrics";
 import { nowHHMM } from "@/lib/clock";
+import { MATERIAL_TYPES } from "@/lib/labels";
 import { PhotoUploadButton } from "@/components/PhotoUploadButton";
 
 type Trip = {
@@ -16,6 +17,10 @@ type Trip = {
   descargaFin: string;
   retornoFin: string | null;
   observacion: string | null;
+  tipoMaterial: string | null;
+  origen: string | null;
+  destino: string | null;
+  equipoCarguio: { code: string } | null;
 };
 
 type Record_ = {
@@ -30,7 +35,7 @@ type Roster = {
   fotoFinUrl: string | null;
 };
 
-type Stage = 0 | 1 | 2 | 3;
+type Stage = 0 | 1 | 2;
 
 const STAGE_INFO: {
   stage: Stage;
@@ -38,10 +43,9 @@ const STAGE_INFO: {
   color: string;
   icon: string;
 }[] = [
-  { stage: 0, label: "Iniciar carguío", color: "bg-blue-600 hover:bg-blue-700", icon: "⛏️" },
-  { stage: 1, label: "Fin de carguío (sale cargado)", color: "bg-orange-500 hover:bg-orange-600", icon: "🚛" },
-  { stage: 2, label: "Llegó a botadero (inicia descarga)", color: "bg-violet-600 hover:bg-violet-700", icon: "📍" },
-  { stage: 3, label: "Fin de descarga (viaje completo)", color: "bg-emerald-600 hover:bg-emerald-700", icon: "🏁" },
+  { stage: 0, label: "Inicio Carguío", color: "bg-blue-600 hover:bg-blue-700", icon: "⛏️" },
+  { stage: 1, label: "Inicia Descarga", color: "bg-orange-500 hover:bg-orange-600", icon: "🚛" },
+  { stage: 2, label: "Termina", color: "bg-emerald-600 hover:bg-emerald-700", icon: "🏁" },
 ];
 
 export function WhiteEquipmentCard({
@@ -50,6 +54,7 @@ export function WhiteEquipmentCard({
   record,
   roster,
   editable,
+  equiposCarguio,
 }: {
   equipment: {
     id: string;
@@ -63,6 +68,7 @@ export function WhiteEquipmentCard({
   record: Record_;
   roster: Roster;
   editable: boolean;
+  equiposCarguio: { id: string; code: string; name: string }[];
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -70,17 +76,20 @@ export function WhiteEquipmentCard({
   const [stage, setStage] = useState<Stage>(0);
   const [carguioInicio, setCarguioInicio] = useState<string | null>(null);
   const [carguioFin, setCarguioFin] = useState<string | null>(null);
-  const [descargaInicio, setDescargaInicio] = useState<string | null>(null);
+
+  const [tipoMaterial, setTipoMaterial] = useState("");
+  const [origen, setOrigen] = useState("");
+  const [destino, setDestino] = useState("");
+  const [equipoCarguioId, setEquipoCarguioId] = useState("");
 
   const trips = record?.trips ?? [];
   const computed = trips.map((t) => calcularCicloViaje(t, t.numero));
   const stats = promedioRobusto(computed.map((c) => c.cicloTotalMin));
 
-  function resetFlow() {
+  function resetStage() {
     setStage(0);
     setCarguioInicio(null);
     setCarguioFin(null);
-    setDescargaInicio(null);
   }
 
   function handleTap() {
@@ -93,10 +102,7 @@ export function WhiteEquipmentCard({
       setCarguioFin(t);
       setStage(2);
     } else if (stage === 2) {
-      setDescargaInicio(t);
-      setStage(3);
-    } else if (stage === 3) {
-      if (!carguioInicio || !carguioFin || !descargaInicio) return;
+      if (!carguioInicio || !carguioFin) return;
       const descargaFin = t;
       startTransition(async () => {
         try {
@@ -105,10 +111,14 @@ export function WhiteEquipmentCard({
             date,
             carguioInicio,
             carguioFin,
-            descargaInicio,
+            descargaInicio: carguioFin,
             descargaFin,
+            tipoMaterial: tipoMaterial || null,
+            origen: origen || null,
+            destino: destino || null,
+            equipoCarguioId: equipoCarguioId || null,
           });
-          resetFlow();
+          resetStage();
         } catch (err) {
           setError(err instanceof Error ? err.message : "Error al guardar viaje.");
         }
@@ -193,12 +203,66 @@ export function WhiteEquipmentCard({
       )}
 
       {editable && (
+        <div className="space-y-2 border-t border-slate-100 pt-2">
+          <div>
+            <label className="block text-[11px] text-slate-500 mb-1">Tipo de material</label>
+            <div className="flex flex-wrap gap-1">
+              {MATERIAL_TYPES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setTipoMaterial(m)}
+                  className={`text-[11px] px-2 py-1 rounded-full border ${
+                    tipoMaterial === m
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-600 border-slate-300"
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <input
+              type="text"
+              placeholder="Origen"
+              value={origen}
+              onChange={(e) => setOrigen(e.target.value)}
+              className="border border-slate-300 rounded-md px-2 py-1.5 text-xs"
+            />
+            <input
+              type="text"
+              placeholder="Destino"
+              value={destino}
+              onChange={(e) => setDestino(e.target.value)}
+              className="border border-slate-300 rounded-md px-2 py-1.5 text-xs"
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] text-slate-500 mb-1">Equipo que carga (línea amarilla)</label>
+            <select
+              value={equipoCarguioId}
+              onChange={(e) => setEquipoCarguioId(e.target.value)}
+              className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-xs"
+            >
+              <option value="">Sin especificar</option>
+              {equiposCarguio.map((eq) => (
+                <option key={eq.id} value={eq.id}>
+                  {eq.code} · {eq.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {editable && (
         <div className="space-y-1.5">
           {stage > 0 && (
             <p className="text-xs text-slate-500">
-              {carguioInicio && <>Carguío {carguioInicio}</>}
-              {carguioFin && <> → {carguioFin}</>}
-              {descargaInicio && <> · Descarga desde {descargaInicio}</>}
+              {carguioInicio && <>Carguío desde {carguioInicio}</>}
+              {carguioFin && <> · Descarga desde {carguioFin}</>}
             </p>
           )}
           <button
@@ -220,7 +284,7 @@ export function WhiteEquipmentCard({
               ))}
             </div>
             {stage > 0 && (
-              <button onClick={resetFlow} className="text-xs text-slate-500 underline">
+              <button onClick={resetStage} className="text-xs text-slate-500 underline">
                 Cancelar viaje
               </button>
             )}
@@ -237,9 +301,13 @@ export function WhiteEquipmentCard({
               className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1"
             >
               <span>
-                #{c.numero} · Carguío {trips[i].carguioInicio}-{trips[i].carguioFin} · Descarga{" "}
-                {trips[i].descargaInicio}-{trips[i].descargaFin} · Ciclo{" "}
-                <strong>{c.cicloTotalMin} min</strong>
+                #{c.numero}
+                {trips[i].tipoMaterial ? ` · ${trips[i].tipoMaterial}` : ""}
+                {trips[i].origen || trips[i].destino
+                  ? ` · ${trips[i].origen ?? "?"} → ${trips[i].destino ?? "?"}`
+                  : ""}
+                {trips[i].equipoCarguio ? ` · Cargado por ${trips[i].equipoCarguio.code}` : ""}
+                {" · "}Ciclo <strong>{c.cicloTotalMin} min</strong>
               </span>
               {editable && (
                 <button

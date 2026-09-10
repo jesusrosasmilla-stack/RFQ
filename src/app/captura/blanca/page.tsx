@@ -28,10 +28,18 @@ export default async function CapturaBlancaPage({
     include: {
       whiteRecords: {
         where: { date },
-        include: { trips: { orderBy: { numero: "asc" } } },
+        include: {
+          trips: { orderBy: { numero: "asc" }, include: { equipoCarguio: { select: { code: true } } } },
+        },
       },
       dailyRosters: { where: { date } },
     },
+  });
+
+  const equiposCarguio = await prisma.equipment.findMany({
+    where: { category: "LINEA_AMARILLA", active: true },
+    orderBy: { code: "asc" },
+    select: { id: true, code: true, name: true },
   });
 
   const canOperate = isAdmin || (session.user.active && settings.dataEntryOpen);
@@ -90,6 +98,7 @@ export default async function CapturaBlancaPage({
               record={record}
               roster={roster}
               editable={editable}
+              equiposCarguio={equiposCarguio}
             />
           );
         })}
