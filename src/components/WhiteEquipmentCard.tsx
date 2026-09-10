@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { addTripForEquipment, deleteTrip } from "@/lib/actions/white";
+import { setRosterEstado, uploadRosterFoto } from "@/lib/actions/roster";
 import { calcularCicloViaje, promedioRobusto } from "@/lib/metrics";
 import { nowHHMM } from "@/lib/clock";
+import { PhotoUploadButton } from "@/components/PhotoUploadButton";
 
 type Trip = {
   id: string;
@@ -21,6 +23,12 @@ type Record_ = {
   locked: boolean;
   trips: Trip[];
 } | null;
+
+type Roster = {
+  id: string;
+  fotoInicioUrl: string | null;
+  fotoFinUrl: string | null;
+};
 
 type Stage = 0 | 1 | 2 | 3;
 
@@ -40,6 +48,7 @@ export function WhiteEquipmentCard({
   equipment,
   date,
   record,
+  roster,
   editable,
 }: {
   equipment: {
@@ -52,6 +61,7 @@ export function WhiteEquipmentCard({
   };
   date: string;
   record: Record_;
+  roster: Roster;
   editable: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +126,17 @@ export function WhiteEquipmentCard({
     });
   }
 
+  function handleMarkInoperativo() {
+    const motivo = window.prompt("¿Motivo por el que está inoperativo?") || undefined;
+    startTransition(async () => {
+      try {
+        await setRosterEstado(roster.id, "INOPERATIVO", motivo);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al actualizar.");
+      }
+    });
+  }
+
   const current = STAGE_INFO[stage];
 
   return (
@@ -137,14 +158,39 @@ export function WhiteEquipmentCard({
             </p>
           )}
         </div>
-        {record?.locked && (
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-            Bloqueado
-          </span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {record?.locked && (
+            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+              Bloqueado
+            </span>
+          )}
+          {editable && (
+            <button
+              onClick={handleMarkInoperativo}
+              className="text-xs px-2 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700"
+            >
+              🔧 Inoperativo
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</p>}
+
+      {editable && (
+        <div className="flex flex-wrap gap-2">
+          <PhotoUploadButton
+            label="Foto equipo (inicio)"
+            currentUrl={roster.fotoInicioUrl}
+            onUpload={(file) => uploadRosterFoto(roster.id, "inicio", file)}
+          />
+          <PhotoUploadButton
+            label="Foto equipo (fin)"
+            currentUrl={roster.fotoFinUrl}
+            onUpload={(file) => uploadRosterFoto(roster.id, "fin", file)}
+          />
+        </div>
+      )}
 
       {editable && (
         <div className="space-y-1.5">

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getOrCreateSettings, canEditRecord } from "@/lib/access";
 import { parseDateParam, todayParam, formatDateEs } from "@/lib/date";
 import { YellowEquipmentCard } from "@/components/YellowEquipmentCard";
+import { InoperativoCard } from "@/components/InoperativoCard";
+import { EquipmentPicker } from "@/components/EquipmentPicker";
 import { AccessBanner } from "@/components/AccessBanner";
 import { DateNav } from "@/components/DateNav";
 
@@ -28,10 +30,17 @@ export default async function CapturaAmarillaPage({
         where: { date },
         include: { stops: { orderBy: { horaInicio: "asc" } } },
       },
+      dailyRosters: { where: { date } },
     },
   });
 
   const canOperate = isAdmin || (session.user.active && settings.dataEntryOpen);
+  const editableRoster = isAdmin || canOperate;
+
+  const enRoster = equipment.filter((eq) => eq.dailyRosters[0]);
+  const disponibles = equipment
+    .filter((eq) => !eq.dailyRosters[0])
+    .map((eq) => ({ id: eq.id, code: eq.code, name: eq.name, placa: eq.placa }));
 
   return (
     <div className="space-y-6">
@@ -45,9 +54,24 @@ export default async function CapturaAmarillaPage({
 
       <AccessBanner settings={settings} isAdmin={isAdmin} userActive={session.user.active} />
 
+      {editableRoster && <EquipmentPicker date={dateStr} available={disponibles} />}
+
       <div className="grid gap-4 sm:grid-cols-2">
-        {equipment.map((eq) => {
+        {enRoster.map((eq) => {
+          const roster = eq.dailyRosters[0];
           const record = eq.yellowRecords[0] ?? null;
+
+          if (roster.estado === "INOPERATIVO") {
+            return (
+              <InoperativoCard
+                key={`${eq.id}-${dateStr}`}
+                equipment={{ code: eq.code, name: eq.name, model: eq.model, placa: eq.placa }}
+                roster={roster}
+                editable={editableRoster}
+              />
+            );
+          }
+
           const editable =
             isAdmin ||
             (canOperate && (!record || canEditRecord(session.user, record, settings.dataEntryOpen)));
@@ -57,13 +81,16 @@ export default async function CapturaAmarillaPage({
               equipment={{ id: eq.id, code: eq.code, name: eq.name, model: eq.model, placa: eq.placa }}
               date={dateStr}
               record={record}
+              roster={roster}
               editable={editable}
               settings={settings}
             />
           );
         })}
-        {equipment.length === 0 && (
-          <p className="text-slate-500 text-sm">No hay equipos de línea amarilla registrados.</p>
+        {enRoster.length === 0 && (
+          <p className="text-slate-500 text-sm">
+            Ningún equipo ha sido seleccionado para hoy todavía. Agrégalos arriba.
+          </p>
         )}
       </div>
     </div>

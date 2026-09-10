@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { upsertYellowRecord, addYellowStop, deleteYellowStop } from "@/lib/actions/yellow";
+import { upsertYellowRecord, addYellowStop, deleteYellowStop, uploadHorometroFoto } from "@/lib/actions/yellow";
+import { setRosterEstado, uploadRosterFoto } from "@/lib/actions/roster";
 import { calcularResumenLineaAmarilla } from "@/lib/metrics";
 import { nowHHMM } from "@/lib/clock";
 import { STOP_TYPE_LABELS, STOP_TYPE_EMOJI } from "@/lib/labels";
 import { useVoiceDictation } from "@/hooks/useVoiceDictation";
+import { PhotoUploadButton } from "@/components/PhotoUploadButton";
 
 type Stop = {
   id: string;
@@ -20,8 +22,16 @@ type Record_ = {
   horometroInicial: number;
   horometroFinal: number | null;
   locked: boolean;
+  fotoHorometroInicialUrl: string | null;
+  fotoHorometroFinalUrl: string | null;
   stops: Stop[];
 } | null;
+
+type Roster = {
+  id: string;
+  fotoInicioUrl: string | null;
+  fotoFinUrl: string | null;
+};
 
 type StopStage = "idle" | "running" | "detailing";
 
@@ -29,12 +39,14 @@ export function YellowEquipmentCard({
   equipment,
   date,
   record,
+  roster,
   editable,
   settings,
 }: {
   equipment: { id: string; code: string; name: string; model: string | null; placa: string | null };
   date: string;
   record: Record_;
+  roster: Roster;
   editable: boolean;
   settings: { workStart: string; workEnd: string; lunchStart: string; lunchEnd: string };
 }) {
@@ -131,6 +143,17 @@ export function YellowEquipmentCard({
     });
   }
 
+  function handleMarkInoperativo() {
+    const motivo = window.prompt("¿Motivo por el que está inoperativo?") || undefined;
+    startTransition(async () => {
+      try {
+        await setRosterEstado(roster.id, "INOPERATIVO", motivo);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al actualizar.");
+      }
+    });
+  }
+
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -146,14 +169,39 @@ export function YellowEquipmentCard({
             </p>
           )}
         </div>
-        {record?.locked && (
-          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
-            Bloqueado
-          </span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {record?.locked && (
+            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+              Bloqueado
+            </span>
+          )}
+          {editable && (
+            <button
+              onClick={handleMarkInoperativo}
+              className="text-xs px-2 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700"
+            >
+              🔧 Inoperativo
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</p>}
+
+      {editable && (
+        <div className="flex flex-wrap gap-2">
+          <PhotoUploadButton
+            label="Foto equipo (inicio)"
+            currentUrl={roster.fotoInicioUrl}
+            onUpload={(file) => uploadRosterFoto(roster.id, "inicio", file)}
+          />
+          <PhotoUploadButton
+            label="Foto equipo (fin)"
+            currentUrl={roster.fotoFinUrl}
+            onUpload={(file) => uploadRosterFoto(roster.id, "fin", file)}
+          />
+        </div>
+      )}
 
       <form onSubmit={handleSaveHorometro} className="grid grid-cols-2 gap-2">
         <div>
@@ -167,6 +215,15 @@ export function YellowEquipmentCard({
             onChange={(e) => setHorometroInicial(e.target.value)}
             className="w-full border border-slate-300 rounded-md px-2 py-2 text-base disabled:bg-slate-100"
           />
+          {record && editable && (
+            <div className="mt-1">
+              <PhotoUploadButton
+                label="Foto lectura"
+                currentUrl={record.fotoHorometroInicialUrl}
+                onUpload={(file) => uploadHorometroFoto(record.id, "inicial", file)}
+              />
+            </div>
+          )}
         </div>
         <div>
           <label className="block text-xs text-slate-500 mb-0.5">Horómetro final</label>
@@ -178,6 +235,15 @@ export function YellowEquipmentCard({
             onChange={(e) => setHorometroFinal(e.target.value)}
             className="w-full border border-slate-300 rounded-md px-2 py-2 text-base disabled:bg-slate-100"
           />
+          {record && editable && (
+            <div className="mt-1">
+              <PhotoUploadButton
+                label="Foto lectura"
+                currentUrl={record.fotoHorometroFinalUrl}
+                onUpload={(file) => uploadHorometroFoto(record.id, "final", file)}
+              />
+            </div>
+          )}
         </div>
         <div className="col-span-2">
           <button

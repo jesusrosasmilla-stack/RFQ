@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { assertCanWrite, canEditRecord, getOrCreateSettings } from "@/lib/access";
 import { parseDateParam } from "@/lib/date";
 import { isValidHHMM } from "@/lib/time";
+import { saveUploadedImage } from "@/lib/uploads";
 
 async function requireSession() {
   const session = await auth();
@@ -53,6 +54,29 @@ export async function upsertYellowRecord(input: {
 
   revalidatePath("/captura/amarilla");
   revalidatePath("/dashboard");
+}
+
+export async function uploadHorometroFoto(recordId: string, field: "inicial" | "final", file: File) {
+  const session = await requireSession();
+  await assertCanWrite(session.user);
+
+  const record = await prisma.yellowLineRecord.findUnique({ where: { id: recordId } });
+  if (!record) throw new Error("Registro no encontrado.");
+
+  const settings = await getOrCreateSettings();
+  if (!canEditRecord(session.user, record, settings.dataEntryOpen)) {
+    throw new Error("Este registro ya no se puede editar.");
+  }
+
+  const url = await saveUploadedImage(file, "horometro");
+  await prisma.yellowLineRecord.update({
+    where: { id: recordId },
+    data:
+      field === "inicial" ? { fotoHorometroInicialUrl: url } : { fotoHorometroFinalUrl: url },
+  });
+
+  revalidatePath("/captura/amarilla");
+  return url;
 }
 
 export async function addYellowStop(input: {

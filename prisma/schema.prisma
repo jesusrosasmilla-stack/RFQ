@@ -26,6 +26,11 @@ enum StopType {
   OTRO
 }
 
+enum RosterEstado {
+  TRABAJANDO
+  INOPERATIVO
+}
+
 model User {
   id             String             @id @default(cuid())
   name           String
@@ -38,6 +43,7 @@ model User {
   yellowRecords  YellowLineRecord[]
   whiteRecords   WhiteLineRecord[]
   accessLogs     AccessLog[]
+  dailyRosters   DailyRoster[]
 }
 
 model Equipment {
@@ -55,6 +61,25 @@ model Equipment {
   yellowRecords YellowLineRecord[]
   whiteRecords  WhiteLineRecord[]
   dailyPlans    DailyPlan[]
+  dailyRosters  DailyRoster[]
+}
+
+/// Selección diaria: qué equipos trabajan hoy, o si están inoperativos, con fotos de evidencia.
+model DailyRoster {
+  id            String       @id @default(cuid())
+  date          DateTime
+  equipmentId   String
+  equipment     Equipment    @relation(fields: [equipmentId], references: [id])
+  estado        RosterEstado @default(TRABAJANDO)
+  motivo        String?
+  fotoInicioUrl String?
+  fotoFinUrl    String?
+  createdById   String
+  createdBy     User         @relation(fields: [createdById], references: [id])
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([equipmentId, date])
 }
 
 model Settings {
@@ -75,6 +100,8 @@ model YellowLineRecord {
   equipment        Equipment        @relation(fields: [equipmentId], references: [id])
   horometroInicial Float
   horometroFinal   Float?
+  fotoHorometroInicialUrl String?
+  fotoHorometroFinalUrl   String?
   createdById      String
   createdBy        User             @relation(fields: [createdById], references: [id])
   locked           Boolean          @default(false)
