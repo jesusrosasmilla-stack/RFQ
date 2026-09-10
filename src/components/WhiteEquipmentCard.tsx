@@ -42,7 +42,14 @@ export function WhiteEquipmentCard({
   record,
   editable,
 }: {
-  equipment: { id: string; code: string; name: string; model: string | null };
+  equipment: {
+    id: string;
+    code: string;
+    name: string;
+    model: string | null;
+    placa: string | null;
+    volumen: number | null;
+  };
   date: string;
   record: Record_;
   editable: boolean;
@@ -118,7 +125,17 @@ export function WhiteEquipmentCard({
           <h3 className="font-semibold text-slate-800">
             {equipment.code} · {equipment.name}
           </h3>
-          {equipment.model && <p className="text-xs text-slate-500">{equipment.model}</p>}
+          {(equipment.model || equipment.placa || equipment.volumen != null) && (
+            <p className="text-xs text-slate-500">
+              {[
+                equipment.model,
+                equipment.placa && `Placa ${equipment.placa}`,
+                equipment.volumen != null && `${equipment.volumen} m³`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
         {record?.locked && (
           <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">

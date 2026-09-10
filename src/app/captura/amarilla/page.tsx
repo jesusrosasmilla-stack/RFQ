@@ -54,7 +54,7 @@ export default async function CapturaAmarillaPage({
           return (
             <YellowEquipmentCard
               key={`${eq.id}-${dateStr}`}
-              equipment={{ id: eq.id, code: eq.code, name: eq.name, model: eq.model }}
+              equipment={{ id: eq.id, code: eq.code, name: eq.name, model: eq.model, placa: eq.placa }}
               date={dateStr}
               record={record}
               editable={editable}

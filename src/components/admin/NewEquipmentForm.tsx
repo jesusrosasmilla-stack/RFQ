@@ -7,6 +7,10 @@ export function NewEquipmentForm() {
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [model, setModel] = useState("");
+  const [placa, setPlaca] = useState("");
+  const [costoHm, setCostoHm] = useState("");
+  const [contratista, setContratista] = useState("");
+  const [volumen, setVolumen] = useState("");
   const [category, setCategory] = useState<"LINEA_AMARILLA" | "LINEA_BLANCA">("LINEA_AMARILLA");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -16,10 +20,23 @@ export function NewEquipmentForm() {
     setError(null);
     startTransition(async () => {
       try {
-        await createEquipment({ code, name, model: model || undefined, category });
+        await createEquipment({
+          code,
+          name,
+          model: model || undefined,
+          placa: placa || undefined,
+          costoHm: costoHm === "" ? null : Number(costoHm),
+          contratista: contratista || undefined,
+          volumen: volumen === "" ? null : Number(volumen),
+          category,
+        });
         setCode("");
         setName("");
         setModel("");
+        setPlaca("");
+        setCostoHm("");
+        setContratista("");
+        setVolumen("");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al crear equipo.");
       }
@@ -34,15 +51,23 @@ export function NewEquipmentForm() {
           required
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-28"
+          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-24"
         />
       </div>
       <div>
-        <label className="block text-xs text-slate-500 mb-0.5">Nombre</label>
+        <label className="block text-xs text-slate-500 mb-0.5">Descripción / Nombre</label>
         <input
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
+          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-500 mb-0.5">Contratista (opcional)</label>
+        <input
+          value={contratista}
+          onChange={(e) => setContratista(e.target.value)}
           className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
         />
       </div>
@@ -52,6 +77,36 @@ export function NewEquipmentForm() {
           value={model}
           onChange={(e) => setModel(e.target.value)}
           className="border border-slate-300 rounded-md px-2 py-1.5 text-sm"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-500 mb-0.5">Placa (opcional)</label>
+        <input
+          value={placa}
+          onChange={(e) => setPlaca(e.target.value)}
+          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-28"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-500 mb-0.5">Costo por HM (opcional)</label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={costoHm}
+          onChange={(e) => setCostoHm(e.target.value)}
+          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-28"
+        />
+      </div>
+      <div>
+        <label className="block text-xs text-slate-500 mb-0.5">Volumen m³ (opcional)</label>
+        <input
+          type="number"
+          step="0.1"
+          min="0"
+          value={volumen}
+          onChange={(e) => setVolumen(e.target.value)}
+          className="border border-slate-300 rounded-md px-2 py-1.5 text-sm w-24"
         />
       </div>
       <div>

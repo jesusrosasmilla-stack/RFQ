@@ -79,6 +79,10 @@ export async function createEquipment(data: {
   code: string;
   name: string;
   model?: string;
+  placa?: string;
+  costoHm?: number | null;
+  contratista?: string;
+  volumen?: number | null;
   category: "LINEA_AMARILLA" | "LINEA_BLANCA";
 }) {
   await requireAdmin();
@@ -90,6 +94,25 @@ export async function setEquipmentActive(id: string, active: boolean) {
   await requireAdmin();
   await prisma.equipment.update({ where: { id }, data: { active } });
   revalidatePath("/admin/equipos");
+}
+
+export async function updateEquipmentDetails(
+  id: string,
+  data: {
+    name: string;
+    model?: string;
+    placa?: string;
+    costoHm?: number | null;
+    contratista?: string;
+    volumen?: number | null;
+  }
+) {
+  await requireAdmin();
+  await prisma.equipment.update({ where: { id }, data });
+  revalidatePath("/admin/equipos");
+  revalidatePath("/captura/amarilla");
+  revalidatePath("/captura/blanca");
+  revalidatePath("/dashboard");
 }
 
 export async function setRecordLocked(

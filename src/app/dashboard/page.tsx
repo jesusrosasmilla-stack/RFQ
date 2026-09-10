@@ -74,7 +74,7 @@ export default async function DashboardPage({
         <DateNav basePath="/dashboard" date={dateStr} />
       </div>
 
-      <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-5">
         <KpiCard
           label="Eficiencia línea amarilla"
           value={today.avgEficiencia != null ? `${today.avgEficiencia}%` : "—"}
@@ -96,6 +96,11 @@ export default async function DashboardPage({
           label="Viajes de volquetes"
           value={`${today.totalViajes}`}
           sub={today.avgCiclo != null ? `Ciclo promedio depurado: ${today.avgCiclo} min` : "Sin viajes"}
+        />
+        <KpiCard
+          label="Costo operativo (línea amarilla)"
+          value={today.totalCosto > 0 ? today.totalCosto.toLocaleString("es-PE") : "—"}
+          sub="HM horómetro × costo/HM de cada equipo"
         />
       </div>
 
@@ -125,6 +130,17 @@ export default async function DashboardPage({
           <SimpleBarChart
             data={today.yellowRows.map((r) => ({ label: r.code, value: r.paradasHoras }))}
             unit=" h"
+          />
+        </div>
+
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <h2 className="font-semibold text-slate-800 mb-1">Costo operativo por equipo</h2>
+          <p className="text-xs text-slate-500 mb-2">HM horómetro × costo/HM registrado en Equipos</p>
+          <SimpleBarChart
+            data={today.yellowRows
+              .filter((r) => r.costo != null)
+              .map((r) => ({ label: r.code, value: r.costo as number }))}
+            unit=""
           />
         </div>
 

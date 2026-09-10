@@ -54,7 +54,14 @@ export default async function CapturaBlancaPage({
           return (
             <WhiteEquipmentCard
               key={`${eq.id}-${dateStr}`}
-              equipment={{ id: eq.id, code: eq.code, name: eq.name, model: eq.model }}
+              equipment={{
+                id: eq.id,
+                code: eq.code,
+                name: eq.name,
+                model: eq.model,
+                placa: eq.placa,
+                volumen: eq.volumen,
+              }}
               date={dateStr}
               record={record}
               editable={editable}

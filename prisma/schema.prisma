@@ -46,6 +46,10 @@ model Equipment {
   name          String
   category      EquipmentCategory
   model         String?
+  placa         String?
+  costoHm       Float?
+  contratista   String?
+  volumen       Float?
   active        Boolean            @default(true)
   createdAt     DateTime           @default(now())
   yellowRecords YellowLineRecord[]

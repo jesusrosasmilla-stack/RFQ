@@ -32,7 +32,7 @@ export function YellowEquipmentCard({
   editable,
   settings,
 }: {
-  equipment: { id: string; code: string; name: string; model: string | null };
+  equipment: { id: string; code: string; name: string; model: string | null; placa: string | null };
   date: string;
   record: Record_;
   editable: boolean;
@@ -138,7 +138,13 @@ export function YellowEquipmentCard({
           <h3 className="font-semibold text-slate-800">
             {equipment.code} · {equipment.name}
           </h3>
-          {equipment.model && <p className="text-xs text-slate-500">{equipment.model}</p>}
+          {(equipment.model || equipment.placa) && (
+            <p className="text-xs text-slate-500">
+              {equipment.model}
+              {equipment.model && equipment.placa && " · "}
+              {equipment.placa && `Placa ${equipment.placa}`}
+            </p>
+          )}
         </div>
         {record?.locked && (
           <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full">

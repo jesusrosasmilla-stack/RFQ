@@ -4,6 +4,8 @@ import { DataEntrySwitch } from "@/components/admin/DataEntrySwitch";
 import { UserRow } from "@/components/admin/UserRow";
 import { NewOperatorForm } from "@/components/admin/NewOperatorForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function UsuariosPage() {
   const settings = await getOrCreateSettings();
   const users = await prisma.user.findMany({

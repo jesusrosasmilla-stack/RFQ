@@ -34,6 +34,7 @@ export interface EquipmentLite {
   code: string;
   name: string;
   category: "LINEA_AMARILLA" | "LINEA_BLANCA";
+  costoHm: number | null;
   yellowRecords: YellowRecordLite[];
   whiteRecords: WhiteRecordLite[];
   dailyPlans: PlanLite[];
@@ -41,7 +42,14 @@ export interface EquipmentLite {
 
 export interface DayMetrics {
   dateStr: string;
-  yellowRows: { code: string; name: string; eficiencia: number | null; paradasHoras: number; hmHorometro: number | null }[];
+  yellowRows: {
+    code: string;
+    name: string;
+    eficiencia: number | null;
+    paradasHoras: number;
+    hmHorometro: number | null;
+    costo: number | null;
+  }[];
   whiteRows: { code: string; name: string; viajes: number; cicloPromedio: number | null }[];
   avgEficiencia: number | null;
   totalParadasHoras: number;
@@ -51,6 +59,7 @@ export interface DayMetrics {
   ppc: number | null;
   planCount: number;
   planCumplidos: number;
+  totalCosto: number;
 }
 
 function mean(values: number[]): number | null {
@@ -82,12 +91,17 @@ export function computeDayMetrics(
           rec.stops,
           workday
         );
+        const costo =
+          resumen.hmHorometro != null && eq.costoHm != null
+            ? Math.round(resumen.hmHorometro * eq.costoHm * 100) / 100
+            : null;
         yellowRows.push({
           code: eq.code,
           name: eq.name,
           eficiencia: resumen.eficiencia,
           paradasHoras: resumen.paradasHoras,
           hmHorometro: resumen.hmHorometro,
+          costo,
         });
         actual = resumen.hmHorometro ?? 0;
         for (const s of rec.stops) {
@@ -129,5 +143,9 @@ export function computeDayMetrics(
     ppc: planCount > 0 ? Math.round((planCumplidos / planCount) * 10000) / 100 : null,
     planCount,
     planCumplidos,
+    totalCosto:
+      Math.round(
+        yellowRows.reduce((a, r) => a + (r.costo ?? 0), 0) * 100
+      ) / 100,
   };
 }
