@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+}
+
+enum EquipmentCategory {
+  LINEA_AMARILLA
+  LINEA_BLANCA
+}
+
+enum StopType {
+  FALLA_MECANICA
+  MANTENIMIENTO
+  CLIMA
+  FALTA_OPERADOR
+  FALTA_MATERIAL
+  OTRO
+}
+
+model User {
+  id             String             @id @default(cuid())
+  name           String
+  username       String             @unique
+  passwordHash   String
+  role           Role               @default(OPERATOR)
+  active         Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  yellowRecords  YellowLineRecord[]
+  whiteRecords   WhiteLineRecord[]
+  accessLogs     AccessLog[]
+}
+
+model Equipment {
+  id            String             @id @default(cuid())
+  code          String             @unique
+  name          String
+  category      EquipmentCategory
+  model         String?
+  active        Boolean            @default(true)
+  createdAt     DateTime           @default(now())
+  yellowRecords YellowLineRecord[]
+  whiteRecords  WhiteLineRecord[]
+  dailyPlans    DailyPlan[]
+}
+
+model Settings {
+  id                Int      @id @default(1)
+  workStart         String   @default("07:00")
+  workEnd           String   @default("18:00")
+  lunchStart        String   @default("12:00")
+  lunchEnd          String   @default("13:00")
+  dataEntryOpen     Boolean  @default(false)
+  dataEntryOpenedAt DateTime?
+  dataEntryOpenedBy String?
+}
+
+model YellowLineRecord {
+  id               String           @id @default(cuid())
+  date             DateTime
+  equipmentId      String
+  equipment        Equipment        @relation(fields: [equipmentId], references: [id])
+  horometroInicial Float
+  horometroFinal   Float?
+  createdById      String
+  createdBy        User             @relation(fields: [createdById], references: [id])
+  locked           Boolean          @default(false)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  stops            YellowLineStop[]
+
+  @@unique([equipmentId, date])
+}
+
+model YellowLineStop {
+  id           String           @id @default(cuid())
+  recordId     String
+  record       YellowLineRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  horaInicio   String
+  horaFin      String
+  tipo         StopType         @default(FALLA_MECANICA)
+  observacion  String?
+}
+
+model WhiteLineRecord {
+  id          String    @id @default(cuid())
+  date        DateTime
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id])
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  locked      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  trips       Trip[]
+
+  @@unique([equipmentId, date])
+}
+
+model Trip {
+  id             String          @id @default(cuid())
+  recordId       String
+  record         WhiteLineRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  numero         Int
+  carguioInicio  String
+  carguioFin     String
+  descargaInicio String
+  descargaFin    String
+  retornoFin     String?
+  observacion    String?
+}
+
+model DailyPlan {
+  id                  String    @id @default(cuid())
+  date                DateTime
+  equipmentId         String
+  equipment           Equipment @relation(fields: [equipmentId], references: [id])
+  metrica             String
+  valorPlanificado    Float
+  causaNoCumplimiento String?
+  observacion         String?
+  createdAt           DateTime  @default(now())
+
+  @@unique([equipmentId, date])
+}
+
+model AccessLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  byAdmin   String?
+  createdAt DateTime @default(now())
+}
