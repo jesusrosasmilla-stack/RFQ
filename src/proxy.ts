@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/manifest.webmanifest", "/icon", "/apple-icon", "/favicon.ico"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -9,8 +9,7 @@ export default auth((req) => {
   if (
     PUBLIC_PATHS.includes(pathname) ||
     pathname.startsWith("/api/auth") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    pathname.startsWith("/_next")
   ) {
     return NextResponse.next();
   }
