@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { addTripForEquipment, deleteTrip } from "@/lib/actions/white";
 import { calcularCicloViaje, promedioRobusto } from "@/lib/metrics";
+import { nowHHMM } from "@/lib/clock";
 
 type Trip = {
   id: string;
@@ -21,6 +22,20 @@ type Record_ = {
   trips: Trip[];
 } | null;
 
+type Stage = 0 | 1 | 2 | 3;
+
+const STAGE_INFO: {
+  stage: Stage;
+  label: string;
+  color: string;
+  icon: string;
+}[] = [
+  { stage: 0, label: "Iniciar carguío", color: "bg-blue-600 hover:bg-blue-700", icon: "⛏️" },
+  { stage: 1, label: "Fin de carguío (sale cargado)", color: "bg-orange-500 hover:bg-orange-600", icon: "🚛" },
+  { stage: 2, label: "Llegó a botadero (inicia descarga)", color: "bg-violet-600 hover:bg-violet-700", icon: "📍" },
+  { stage: 3, label: "Fin de descarga (viaje completo)", color: "bg-emerald-600 hover:bg-emerald-700", icon: "🏁" },
+];
+
 export function WhiteEquipmentCard({
   equipment,
   date,
@@ -32,44 +47,56 @@ export function WhiteEquipmentCard({
   record: Record_;
   editable: boolean;
 }) {
-  const [carguioInicio, setCarguioInicio] = useState("");
-  const [carguioFin, setCarguioFin] = useState("");
-  const [descargaInicio, setDescargaInicio] = useState("");
-  const [descargaFin, setDescargaFin] = useState("");
-  const [retornoFin, setRetornoFin] = useState("");
-  const [observacion, setObservacion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [stage, setStage] = useState<Stage>(0);
+  const [carguioInicio, setCarguioInicio] = useState<string | null>(null);
+  const [carguioFin, setCarguioFin] = useState<string | null>(null);
+  const [descargaInicio, setDescargaInicio] = useState<string | null>(null);
 
   const trips = record?.trips ?? [];
   const computed = trips.map((t) => calcularCicloViaje(t, t.numero));
   const stats = promedioRobusto(computed.map((c) => c.cicloTotalMin));
 
-  function handleAddTrip(e: React.FormEvent) {
-    e.preventDefault();
+  function resetFlow() {
+    setStage(0);
+    setCarguioInicio(null);
+    setCarguioFin(null);
+    setDescargaInicio(null);
+  }
+
+  function handleTap() {
     setError(null);
-    startTransition(async () => {
-      try {
-        await addTripForEquipment({
-          equipmentId: equipment.id,
-          date,
-          carguioInicio,
-          carguioFin,
-          descargaInicio,
-          descargaFin,
-          retornoFin: retornoFin || null,
-          observacion,
-        });
-        setCarguioInicio("");
-        setCarguioFin("");
-        setDescargaInicio("");
-        setDescargaFin("");
-        setRetornoFin("");
-        setObservacion("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al guardar viaje.");
-      }
-    });
+    const t = nowHHMM();
+    if (stage === 0) {
+      setCarguioInicio(t);
+      setStage(1);
+    } else if (stage === 1) {
+      setCarguioFin(t);
+      setStage(2);
+    } else if (stage === 2) {
+      setDescargaInicio(t);
+      setStage(3);
+    } else if (stage === 3) {
+      if (!carguioInicio || !carguioFin || !descargaInicio) return;
+      const descargaFin = t;
+      startTransition(async () => {
+        try {
+          await addTripForEquipment({
+            equipmentId: equipment.id,
+            date,
+            carguioInicio,
+            carguioFin,
+            descargaInicio,
+            descargaFin,
+          });
+          resetFlow();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Error al guardar viaje.");
+        }
+      });
+    }
   }
 
   function handleDeleteTrip(tripId: string) {
@@ -81,6 +108,8 @@ export function WhiteEquipmentCard({
       }
     });
   }
+
+  const current = STAGE_INFO[stage];
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-3">
@@ -100,9 +129,45 @@ export function WhiteEquipmentCard({
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{error}</p>}
 
+      {editable && (
+        <div className="space-y-1.5">
+          {stage > 0 && (
+            <p className="text-xs text-slate-500">
+              {carguioInicio && <>Carguío {carguioInicio}</>}
+              {carguioFin && <> → {carguioFin}</>}
+              {descargaInicio && <> · Descarga desde {descargaInicio}</>}
+            </p>
+          )}
+          <button
+            onClick={handleTap}
+            disabled={pending}
+            className={`w-full text-white text-sm font-medium rounded-md py-4 flex items-center justify-center gap-2 disabled:opacity-50 ${current.color}`}
+          >
+            <span className="text-xl">{current.icon}</span> {current.label}
+          </button>
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              {STAGE_INFO.map((s) => (
+                <span
+                  key={s.stage}
+                  className={`h-1.5 w-6 rounded-full ${
+                    s.stage <= stage ? "bg-slate-700" : "bg-slate-200"
+                  }`}
+                />
+              ))}
+            </div>
+            {stage > 0 && (
+              <button onClick={resetFlow} className="text-xs text-slate-500 underline">
+                Cancelar viaje
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-slate-100 pt-2">
         <p className="text-xs font-medium text-slate-600 mb-1">Viajes registrados</p>
-        <ul className="space-y-1 mb-2 max-h-40 overflow-y-auto">
+        <ul className="space-y-1 max-h-40 overflow-y-auto">
           {computed.map((c, i) => (
             <li
               key={trips[i].id}
@@ -125,76 +190,6 @@ export function WhiteEquipmentCard({
           ))}
           {trips.length === 0 && <li className="text-xs text-slate-400">Sin viajes registrados.</li>}
         </ul>
-
-        {editable && (
-          <form onSubmit={handleAddTrip} className="grid grid-cols-2 gap-1.5">
-            <div>
-              <label className="block text-[10px] text-slate-500">Carguío inicio</label>
-              <input
-                type="time"
-                required
-                value={carguioInicio}
-                onChange={(e) => setCarguioInicio(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-slate-500">Carguío fin</label>
-              <input
-                type="time"
-                required
-                value={carguioFin}
-                onChange={(e) => setCarguioFin(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-slate-500">Descarga inicio</label>
-              <input
-                type="time"
-                required
-                value={descargaInicio}
-                onChange={(e) => setDescargaInicio(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-slate-500">Descarga fin</label>
-              <input
-                type="time"
-                required
-                value={descargaFin}
-                onChange={(e) => setDescargaFin(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-[10px] text-slate-500">
-                Retorno / llegada a carguío (opcional)
-              </label>
-              <input
-                type="time"
-                value={retornoFin}
-                onChange={(e) => setRetornoFin(e.target.value)}
-                className="w-full border border-slate-300 rounded-md px-2 py-1 text-xs"
-              />
-            </div>
-            <input
-              type="text"
-              placeholder="Observación (opcional)"
-              value={observacion}
-              onChange={(e) => setObservacion(e.target.value)}
-              className="col-span-2 border border-slate-300 rounded-md px-2 py-1 text-xs"
-            />
-            <button
-              type="submit"
-              disabled={pending}
-              className="col-span-2 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-md py-1.5"
-            >
-              + Agregar viaje
-            </button>
-          </form>
-        )}
       </div>
 
       <div className="border-t border-slate-100 pt-2 grid grid-cols-3 gap-2 text-xs">

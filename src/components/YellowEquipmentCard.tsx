@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { upsertYellowRecord, addYellowStop, deleteYellowStop } from "@/lib/actions/yellow";
 import { calcularResumenLineaAmarilla } from "@/lib/metrics";
+import { nowHHMM } from "@/lib/clock";
+import { STOP_TYPE_LABELS, STOP_TYPE_EMOJI } from "@/lib/labels";
+import { useVoiceDictation } from "@/hooks/useVoiceDictation";
 
 type Stop = {
   id: string;
@@ -20,14 +23,7 @@ type Record_ = {
   stops: Stop[];
 } | null;
 
-const TIPO_LABELS: Record<string, string> = {
-  FALLA_MECANICA: "Falla mecánica",
-  MANTENIMIENTO: "Mantenimiento",
-  CLIMA: "Clima",
-  FALTA_OPERADOR: "Falta de operador",
-  FALTA_MATERIAL: "Falta de material",
-  OTRO: "Otro",
-};
+type StopStage = "idle" | "running" | "detailing";
 
 export function YellowEquipmentCard({
   equipment,
@@ -46,12 +42,18 @@ export function YellowEquipmentCard({
     record?.horometroInicial?.toString() ?? ""
   );
   const [horometroFinal, setHorometroFinal] = useState(record?.horometroFinal?.toString() ?? "");
-  const [horaInicio, setHoraInicio] = useState("");
-  const [horaFin, setHoraFin] = useState("");
-  const [tipo, setTipo] = useState("FALLA_MECANICA");
-  const [observacion, setObservacion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [stopStage, setStopStage] = useState<StopStage>("idle");
+  const [stopStart, setStopStart] = useState<string | null>(null);
+  const [stopEnd, setStopEnd] = useState<string | null>(null);
+  const [tipo, setTipo] = useState("FALLA_MECANICA");
+  const [observacion, setObservacion] = useState("");
+
+  const dictation = useVoiceDictation((text) =>
+    setObservacion((prev) => (prev ? `${prev} ${text}` : text))
+  );
 
   const resumen = calcularResumenLineaAmarilla(
     Number(horometroInicial) || 0,
@@ -77,25 +79,42 @@ export function YellowEquipmentCard({
     });
   }
 
-  function handleAddStop(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
+  function handleStartStop() {
     if (!record) {
       setError("Primero guarda el horómetro inicial.");
       return;
     }
+    setError(null);
+    setStopStart(nowHHMM());
+    setStopStage("running");
+  }
+
+  function handleEndStop() {
+    setStopEnd(nowHHMM());
+    setStopStage("detailing");
+  }
+
+  function resetStopFlow() {
+    setStopStage("idle");
+    setStopStart(null);
+    setStopEnd(null);
+    setTipo("FALLA_MECANICA");
+    setObservacion("");
+  }
+
+  function handleSaveStop() {
+    if (!record || !stopStart || !stopEnd) return;
+    setError(null);
     startTransition(async () => {
       try {
         await addYellowStop({
           recordId: record.id,
-          horaInicio,
-          horaFin,
+          horaInicio: stopStart,
+          horaFin: stopEnd,
           tipo: tipo as "FALLA_MECANICA",
           observacion,
         });
-        setHoraInicio("");
-        setHoraFin("");
-        setObservacion("");
+        resetStopFlow();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al guardar parada.");
       }
@@ -140,7 +159,7 @@ export function YellowEquipmentCard({
             disabled={!editable}
             value={horometroInicial}
             onChange={(e) => setHorometroInicial(e.target.value)}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm disabled:bg-slate-100"
+            className="w-full border border-slate-300 rounded-md px-2 py-2 text-base disabled:bg-slate-100"
           />
         </div>
         <div>
@@ -151,14 +170,14 @@ export function YellowEquipmentCard({
             disabled={!editable}
             value={horometroFinal}
             onChange={(e) => setHorometroFinal(e.target.value)}
-            className="w-full border border-slate-300 rounded-md px-2 py-1.5 text-sm disabled:bg-slate-100"
+            className="w-full border border-slate-300 rounded-md px-2 py-2 text-base disabled:bg-slate-100"
           />
         </div>
         <div className="col-span-2">
           <button
             type="submit"
             disabled={!editable || pending}
-            className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm rounded-md py-1.5"
+            className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm rounded-md py-2"
           >
             Guardar horómetro
           </button>
@@ -174,7 +193,8 @@ export function YellowEquipmentCard({
               className="flex items-center justify-between text-xs bg-slate-50 rounded px-2 py-1"
             >
               <span>
-                {s.horaInicio}–{s.horaFin} · {TIPO_LABELS[s.tipo] ?? s.tipo}
+                {STOP_TYPE_EMOJI[s.tipo] ?? ""} {s.horaInicio}–{s.horaFin} ·{" "}
+                {STOP_TYPE_LABELS[s.tipo] ?? s.tipo}
                 {s.observacion ? ` · ${s.observacion}` : ""}
               </span>
               {editable && (
@@ -192,48 +212,97 @@ export function YellowEquipmentCard({
           )}
         </ul>
 
-        {editable && (
-          <form onSubmit={handleAddStop} className="grid grid-cols-2 gap-1.5">
-            <input
-              type="time"
-              required
-              value={horaInicio}
-              onChange={(e) => setHoraInicio(e.target.value)}
-              className="border border-slate-300 rounded-md px-2 py-1 text-xs"
-            />
-            <input
-              type="time"
-              required
-              value={horaFin}
-              onChange={(e) => setHoraFin(e.target.value)}
-              className="border border-slate-300 rounded-md px-2 py-1 text-xs"
-            />
-            <select
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              className="col-span-2 border border-slate-300 rounded-md px-2 py-1 text-xs"
-            >
-              {Object.entries(TIPO_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder="Observación (opcional)"
-              value={observacion}
-              onChange={(e) => setObservacion(e.target.value)}
-              className="col-span-2 border border-slate-300 rounded-md px-2 py-1 text-xs"
-            />
+        {editable && stopStage === "idle" && (
+          <button
+            onClick={handleStartStop}
+            className="w-full bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md py-3 flex items-center justify-center gap-2"
+          >
+            🛑 Reportar parada (toca al detenerse)
+          </button>
+        )}
+
+        {editable && stopStage === "running" && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-2 space-y-2">
+            <p className="text-xs text-amber-700">
+              ⏱ Parada iniciada a las <strong>{stopStart}</strong>. Toca cuando el equipo vuelva a
+              trabajar.
+            </p>
             <button
-              type="submit"
-              disabled={pending}
-              className="col-span-2 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-md py-1.5"
+              onClick={handleEndStop}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-md py-3"
             >
-              + Agregar parada
+              ▶ Equipo reanudó trabajo
             </button>
-          </form>
+            <button
+              onClick={resetStopFlow}
+              className="w-full text-xs text-slate-500 underline py-1"
+            >
+              Cancelar
+            </button>
+          </div>
+        )}
+
+        {editable && stopStage === "detailing" && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-2 space-y-2">
+            <p className="text-xs text-slate-600">
+              Parada de <strong>{stopStart}</strong> a <strong>{stopEnd}</strong>. ¿Cuál fue el
+              motivo?
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(STOP_TYPE_LABELS).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTipo(k)}
+                  className={`text-xs px-2.5 py-1.5 rounded-full border ${
+                    tipo === k
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-600 border-slate-300"
+                  }`}
+                >
+                  {STOP_TYPE_EMOJI[k]} {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              <textarea
+                placeholder="Observación (escribe o dicta con el micrófono)"
+                value={observacion}
+                onChange={(e) => setObservacion(e.target.value)}
+                rows={2}
+                className="flex-1 border border-slate-300 rounded-md px-2 py-1.5 text-xs"
+              />
+              <button
+                type="button"
+                onClick={dictation.toggle}
+                title="Dictar observación por voz"
+                className={`shrink-0 w-10 rounded-md text-lg ${
+                  dictation.listening
+                    ? "bg-red-600 text-white animate-pulse"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                🎤
+              </button>
+            </div>
+            {dictation.unsupported && (
+              <p className="text-[11px] text-amber-600">
+                Tu navegador no soporta dictado por voz aquí; escribe la observación.
+              </p>
+            )}
+            <div className="flex gap-1.5">
+              <button
+                onClick={handleSaveStop}
+                disabled={pending}
+                className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm rounded-md py-2"
+              >
+                Guardar parada
+              </button>
+              <button onClick={resetStopFlow} className="px-3 text-xs text-slate-500 underline">
+                Cancelar
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
