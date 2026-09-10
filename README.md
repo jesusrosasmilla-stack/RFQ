@@ -49,7 +49,7 @@ npm run dev                 # http://localhost:3000
 Usuario administrador inicial (definido en `prisma/seed.ts`):
 
 - Usuario: `admin`
-- Contraseña: `Admin123!` (o la que definas en `SEED_ADMIN_PASSWORD` antes de
+- Contraseña: `admin` (o la que definas en `SEED_ADMIN_PASSWORD` antes de
   correr `npm run seed`)
 
 **Cambia esta contraseña de inmediato** desde el panel de Usuarios o generando

@@ -10,7 +10,7 @@ async function main() {
     create: { id: 1 },
   });
 
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin123!";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "admin";
   const adminHash = await bcrypt.hash(adminPassword, 10);
   await prisma.user.upsert({
     where: { username: "admin" },
