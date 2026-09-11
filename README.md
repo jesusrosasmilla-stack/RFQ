@@ -35,15 +35,17 @@ por un administrador (el creador de la obra/proyecto).
 ## Requisitos
 
 - Node.js 20 o superior.
+- Una base de datos PostgreSQL (local o en la nube — Vercel Postgres/Neon,
+  Supabase, Railway, etc. todas sirven).
 
 ## Instalación y ejecución local
 
 ```bash
 npm install
-cp .env.example .env      # edita AUTH_SECRET con un valor aleatorio
-npx prisma migrate deploy # crea la base de datos SQLite (dev.db)
-npm run seed               # crea el usuario administrador y equipos de ejemplo
-npm run dev                 # http://localhost:3000
+cp .env.example .env      # edita DATABASE_URL (tu Postgres) y AUTH_SECRET (valor aleatorio)
+npx prisma migrate deploy # crea las tablas
+npm run seed                # crea el usuario administrador y equipos de ejemplo
+npm run dev                  # http://localhost:3000
 ```
 
 Usuario administrador inicial (definido en `prisma/seed.ts`):
@@ -57,15 +59,36 @@ un hash propio.
 
 ## Despliegue
 
-La app usa SQLite (un solo archivo `dev.db`), por lo que no necesita un motor
-de base de datos aparte — ideal para instalarla en un servidor propio o una
-PC/mini servidor de obra. Solo asegúrate de:
+### En Vercel (recomendado — link en internet, sin servidor propio)
 
-1. Definir `DATABASE_URL` y un `AUTH_SECRET` real en el entorno de producción
-   (ver `.env.example`).
-2. Ejecutar `npm run build && npm start`.
-3. Hacer respaldo periódico del archivo `dev.db` (o la ruta que definas en
-   `DATABASE_URL`), ya que ahí vive toda la información capturada.
+1. Importa este repositorio en Vercel (New Project → Import Git Repository).
+2. En el proyecto, ve a **Storage → Create Database → Postgres** y conéctala
+   al proyecto (esto agrega `DATABASE_URL` automáticamente).
+3. En **Settings → Environment Variables**, agrega `AUTH_SECRET` con un valor
+   aleatorio (por ejemplo generado con `openssl rand -base64 32`).
+4. Vuelve a desplegar (Deployments → los tres puntos del último → Redeploy).
+   El build corre `prisma migrate deploy` automáticamente, así que las tablas
+   se crean solas.
+5. Para cargar el usuario administrador y los equipos de ejemplo, corre una
+   vez desde tu máquina (con `DATABASE_URL` apuntando a la base de Vercel,
+   cópiala desde Storage → `.env.local`):
+   ```bash
+   npm run seed
+   ```
+
+Nota: las fotos (horómetro, equipo) se guardan en el disco del servidor
+(`public/uploads`). En Vercel (entorno sin disco persistente) esas fotos no
+se conservan entre despliegues — para uso productivo con fotos, lo ideal es
+desplegar en un servidor con disco persistente (ver abajo) o migrar el
+guardado de fotos a un bucket (S3, Vercel Blob, etc.).
+
+### En un servidor propio / VPS (disco persistente, incluye fotos)
+
+1. Define `DATABASE_URL` (tu Postgres) y un `AUTH_SECRET` real (ver
+   `.env.example`).
+2. Ejecuta `npm run build && npm start`.
+3. Hacer respaldo periódico de la base de datos, ya que ahí vive toda la
+   información capturada.
 
 ## Flujo de uso diario
 
@@ -97,5 +120,5 @@ PC/mini servidor de obra. Solo asegúrate de:
 
 ## Stack técnico
 
-Next.js (App Router) + TypeScript + Prisma/SQLite + NextAuth (Auth.js) +
+Next.js (App Router) + TypeScript + Prisma/PostgreSQL + NextAuth (Auth.js) +
 Tailwind CSS + Recharts.
